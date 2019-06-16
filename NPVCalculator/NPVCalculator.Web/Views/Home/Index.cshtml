@@ -1,0 +1,282 @@
+﻿@{
+    ViewData["Title"] = "Net Present Value Calculator";
+}
+<script>
+    ready(function() {
+        showCalculations(0);
+
+        document.getElementById('frmParameter').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            if (!validateInputs()) {
+                window.scrollTo(0, 0);
+                return;
+            }
+
+            var parameter = {
+                id: 0,
+                cashFlows: []
+            };
+
+            var elements = document.querySelectorAll('input');
+            Array.prototype.forEach.call(elements, function(element) {
+                if (element.name.indexOf('cashFlow') > -1) {
+                    parameter.cashFlows.push({
+                        id: 0,
+                        value: parseFloat(element.value) || 0,
+                        parameterId: 0
+                    });
+                } else {
+                    parameter[element.name] = parseFloat(element.value) || 0;
+                }
+            });
+
+            postJSON('@Url.Action("Calculate", "Home")', parameter, function(data, status) {
+                if (status === 200) {
+                    showCalculations(parseInt(data));
+                    window.scrollTo(0, 0);
+                    clearInputs();
+                } else {
+                    if (data) {
+                        alert(data);
+                    }
+                }
+            });
+        });
+
+        document.getElementById('btnClear').addEventListener('click', function(event) {
+            event.preventDefault();
+            clearInputs();
+        });
+    });
+
+    function showCalculations(parameterId) {
+        getJSON('@Url.Action("Calculations", "Home")' + '?parameterId=' + parameterId, function(data, status) {
+            if (status === 200) {
+                var lastParameterId = data.lastParameterId;
+                var currParameterId = parameterId <= 0 ? lastParameterId : parameterId;
+                var calculations = data.calculations;
+
+                var tbody = document.querySelector('#tblCalculations tbody');
+                tbody.innerHTML = '';
+
+                if (calculations && calculations.length) {
+                    var concatCashFlows = function(cashFlows) {
+                        return cashFlows.reduce(function(str, cashFlow, index) {
+                            return str + (index > 0 ? '<br />' : '') + formatNumber(cashFlow.value);
+                        }, '');
+                    };
+
+                    tbody.innerHTML = calculations.reduce(function(str, calc) {
+                        return str + 
+                            '<tr>' +
+                            '   <td>' + formatNumber(calc.parameter.initialValue) + '</td>' +
+                            '   <td>' + concatCashFlows(calc.parameter.cashFlows) + '</td>' +
+                            '   <td>' + calc.discountRate.toFixed(2) + '</td>' +
+                            '   <td>' + formatNumber(calc.netPresentValue) + '</td>' +
+                            '</tr>';
+                    }, '');
+                }
+                
+                var pagination = document.querySelector('.pagination');
+                pagination.innerHTML = '';
+
+                if (lastParameterId > 0) {
+                    
+                    var parameterIds = getDisplayParameterIds(currParameterId, lastParameterId);
+                    var pages = parameterIds.reduce(function(str, pid) {
+                        return str + 
+                            '<li class="page-item' + (currParameterId === pid ? ' active' : '') + '"><a class="page-link" href="#" onclick="showCalculations(' + pid + ')">' + pid + '</a></li>';
+                    }, '');
+
+                    pagination.innerHTML = 
+                        '<li class="page-item' + (currParameterId <= 1 ? ' disabled' : '') + '"><a class="page-link" href="#" onclick="showCalculations(' + (currParameterId - 1) + ')">Previous</a></li>' +
+                        (parameterIds[0] !== 1 ? '<li class="page-item' + (currParameterId === parameterIds[0] ? ' active' : '') + '"><a class="page-link" href="#" onclick="showCalculations(1)">1</a></li>' : '') +
+                        (parameterIds[0] > 2 ? '<li class="page-item disabled"><a class="page-link" href="#">...</a></li>' : '') +
+                        pages + 
+                        (parameterIds[parameterIds.length - 1] < (lastParameterId - 1) ? '<li class="page-item disabled"><a class="page-link" href="#">...</a></li>' : '') +
+                        (parameterIds[parameterIds.length - 1] !== lastParameterId ? '<li class="page-item' + (currParameterId === lastParameterId ? ' active' : '') + '"><a class="page-link" href="#" onclick="showCalculations(' + lastParameterId + ')">' + lastParameterId + '</a></li>' : '') +
+                        '<li class="page-item' + (currParameterId >= lastParameterId ? ' disabled' : '') + '"><a class="page-link" href="#" onclick="showCalculations(' + (currParameterId + 1) + ')">Next</a></li>';
+                }
+            }
+        });
+    }
+
+    function getDisplayParameterIds(currentId, lastId) {
+        if (currentId <= 0) {
+            currentId = lastId;
+        }
+
+        var startId = currentId - 3;
+        var endId = currentId + 3;
+
+        if (startId <= 0) {
+            startId = 1;
+            endId = 7;
+        }
+        if (endId > lastId) {
+            endId = lastId;
+            startId = (lastId - 6) > 0 ? lastId - 6 : 1;
+        }
+
+        if (startId === 2) {
+            startId = startId - 1;
+            endId = endId - 1;
+        }
+        if (endId === (lastId - 1)) {
+            startId = startId + 1;
+            endId = endId + 1;
+        }
+
+        var parameterIds = [];
+        for (var i = 0; i <= (endId - startId); i++) {
+            parameterIds[i] = startId + i;
+        }
+
+        return parameterIds;
+    }
+
+    function validateInputs() {
+        var isValid = true;
+
+        var lowerBoundDiscountRateField = document.querySelector('input[name="lowerBoundDiscountRate"]');
+        var lowerBoundDiscountRate = parseFloat(lowerBoundDiscountRateField.value);
+        if (!lowerBoundDiscountRate || !(lowerBoundDiscountRate > 0 && lowerBoundDiscountRate <= 100)) {
+            addClass(lowerBoundDiscountRateField, 'is-invalid');
+            isValid = false;
+        } else {
+            removeClass(lowerBoundDiscountRateField, 'is-invalid');
+        }
+
+        var upperBoundDiscountRateField = document.querySelector('input[name="upperBoundDiscountRate"]');
+        var upperBoundDiscountRate = parseFloat(upperBoundDiscountRateField.value);
+        if (!upperBoundDiscountRate || !(upperBoundDiscountRate > 0 && upperBoundDiscountRate <= 100) || upperBoundDiscountRate < lowerBoundDiscountRate) {
+            addClass(upperBoundDiscountRateField, 'is-invalid');
+            isValid = false;
+        } else {
+            removeClass(upperBoundDiscountRateField, 'is-invalid');
+        }
+
+        var discountRateIncrementField = document.querySelector('input[name="discountRateIncrement"]');
+        var discountRateIncrement = parseFloat(discountRateIncrementField.value);
+        if (!discountRateIncrement || !(discountRateIncrement >= 0 && discountRateIncrement <= 100)) {
+            addClass(discountRateIncrementField, 'is-invalid');
+            isValid = false;
+        } else {
+            removeClass(discountRateIncrementField, 'is-invalid');
+        }
+
+        var elements = document.querySelectorAll('input[name^="cashFlow"], input[name="initialValue"]');
+        Array.prototype.forEach.call(elements, function(element) {
+            if (!parseFloat(element.value)) {
+                addClass(element, 'is-invalid');
+                isValid = false;
+            } else {
+                removeClass(element, 'is-invalid');
+            }
+        });
+
+        return isValid;
+    }
+
+    function clearInputs() {
+        var elements = document.querySelectorAll('input');
+        Array.prototype.forEach.call(elements, function(element) {
+            element.value = '';
+            removeClass(element, 'is-invalid');
+        });
+    }
+</script>
+<div class="npv-parameter">
+    <form id="frmParameter" novalidate>
+        <div class="form-row">
+            <div class="form-group col">
+                <label>Lower Bound Discount Rate</label>
+                <input name="lowerBoundDiscountRate" type="text" class="form-control"/>
+                <div class="invalid-feedback">Lower Bound Discount Rate must be greater than 0 and less than or equal to 100.</div>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group col">
+                <label>Upper Bound Discount Rate</label>
+                <input name="upperBoundDiscountRate" type="text" class="form-control" />
+                <div class="invalid-feedback">Upper Bound Discount Rate must be greater than 0 and less than or equal to 100 and must be greater than or equal to Lower Bound Discount Rate.</div>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group col">
+                <label>Discount Rate Increment</label>
+                <input name="discountRateIncrement" type="text" class="form-control" />
+                <div class="invalid-feedback">Discount Rate Increment must be between 0 to 100.</div>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group col">
+                <label>Initial Value</label>
+                <input name="initialValue" type="text" class="form-control" />
+                <div class="invalid-feedback">Initial Value must be a valid currency value (Ex. 1000 | 1,000 | 1000.00).</div>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group col">
+                <label>Cash flow 1</label>
+                <input name="cashFlow1" type="text" class="form-control" />
+                <div class="invalid-feedback">Cash flow 1 must be a valid currency value (Ex. 1000 | 1,000 | 1000.00).</div>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group col">
+                <label>Cash flow 2</label>
+                <input name="cashFlow2" type="text" class="form-control" />
+                <div class="invalid-feedback">Cash flow 2 must be a valid currency value (Ex. 1000 | 1,000 | 1000.00).</div>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group col">
+                <label>Cash flow 3</label>
+                <input name="cashFlow3" type="text" class="form-control" />
+                <div class="invalid-feedback">Cash flow 3 must be a valid currency value (Ex. 1000 | 1,000 | 1000.00).</div>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group col">
+                <label>Cash flow 4</label>
+                <input name="cashFlow4" type="text" class="form-control" />
+                <div class="invalid-feedback">Cash flow 4 must be a valid currency value (Ex. 1000 | 1,000 | 1000.00).</div>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group col">
+                <label>Cash flow 5</label>
+                <input name="cashFlow5" type="text" class="form-control" />
+                <div class="invalid-feedback">Cash flow 5 must be a valid currency value (Ex. 1000 | 1,000 | 1000.00).</div>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group col">
+                <button type="submit" class="btn btn-primary">Calculate</button>
+            </div>
+            <div class="form-group col">
+                <button id="btnClear" class="btn btn-secondary">Clear</button>
+            </div>
+        </div>
+    </form>
+</div>
+<div class="npv-calculations">
+    <div class="table-responsive">
+        <table id="tblCalculations" class="table table-bordered">
+            <thead class="thead-light">
+                <tr>
+                    <th>Initial Value</th>
+                    <th>Cash Flows</th>
+                    <th>Discount Rate</th>
+                    <th>Net Present Value</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+    <nav aria-label="Parameters">
+        <ul class="pagination"></ul>
+    </nav>
+</div>

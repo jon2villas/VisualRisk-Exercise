@@ -1,0 +1,53 @@
+@mixin grid($grid-columns, $grid-rows, $grid-column-gap: null, $grid-row-gap: null, $justify-items: null, $align-items: null) {
+    display: grid;
+    grid-template-columns: $grid-columns;
+    grid-template-rows: $grid-rows;
+    @if $grid-column-gap != null {
+        grid-column-gap: $grid-column-gap;
+    }
+    @if $grid-row-gap != null {
+        grid-row-gap: $grid-row-gap;
+    }
+    @if $justify-items != null {
+        justify-items: $justify-items;
+    }
+    @if $align-items != null {
+        align-items: $align-items;
+    }
+}
+
+@mixin grid-no-gap($grid-columns, $grid-rows) {
+    @include grid($grid-columns, $grid-rows);
+}
+
+@mixin grid-no-gap-center($grid-columns, $grid-rows) {
+    @include grid($grid-columns, $grid-rows, null, null, center, center);
+}
+
+@mixin flex($flex-direction, $justify-content: null, $align-items: null) {
+    display: flex;
+    flex-direction: $flex-direction;
+    @if $flex-direction == row {
+        flex-flow: row wrap;
+    }
+    @if $justify-content != null {
+        justify-content: $justify-content;
+    }
+    @if $align-items != null {
+        align-items: $align-items;
+    }
+}
+
+@mixin flex-row-center() {
+    @include flex(row, center, center);
+}
+
+@mixin flex-column-center() {
+    @include flex(column, center, center);
+}
+
+@mixin box-shadow() {
+    -webkit-box-shadow: 5px 5px 5px 2px rgba(204, 204, 204, 0.1);
+    -moz-box-shadow: 5px 5px 5px 2px rgba(204, 204, 204, 0.1);
+    box-shadow: 5px 5px 5px 2px rgba(204, 204, 204, 0.1);
+}

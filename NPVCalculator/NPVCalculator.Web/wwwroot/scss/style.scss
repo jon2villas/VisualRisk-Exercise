@@ -1,0 +1,60 @@
+@import 'mixins';
+
+@import url('https://fonts.googleapis.com/css?family=Roboto:300,400,500,600,700');
+
+body {
+    font-family: 'Roboto', sans-serif;
+    font-weight: 400;
+}
+
+header {
+    background-color: #5293e3;
+    height: 4rem;
+
+    @include flex-row-center();
+}
+
+main {
+    background-color: #f2f2f2;
+    color: #656565;
+    padding: 0.75rem;
+
+    //@include grid(20rem 1fr, 1fr);
+    @include flex(row, center, stretch);
+
+    > div {
+        background-color: white;
+        border-radius: 5px;
+        @include box-shadow();
+        margin: 0.5rem;
+        padding: 1.5rem;
+    }
+
+    .npv-parameter {
+        width: 18rem;
+
+        label {
+            margin-bottom: 0.125rem;
+        }
+
+        button {
+            width: 100%;
+            margin-top: 0.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 0.5rem;
+        }
+    }
+
+    .npv-calculations {
+        flex-grow: 1;
+        @include flex(column, flex-start, center);
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            border-spacing: 0;
+        }
+    }
+}
